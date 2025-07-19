@@ -19,11 +19,12 @@ val keystoreProperties = if (keystorePropertiesFile.exists() && keystoreProperti
 
 fun String.execute(currentWorkingDir: File = file("./")): String {
     val byteOut = ByteArrayOutputStream()
-    project.exec {
-        workingDir = currentWorkingDir
-        commandLine = split("\\s".toRegex())
-        standardOutput = byteOut
-    }
+    exec {
+    workingDir = currentWorkingDir
+    commandLine = this@execute.split("\\s".toRegex())
+    standardOutput = byteOut
+    isIgnoreExitValue = true
+}
     return String(byteOut.toByteArray()).trim()
 }
 
