@@ -1,11 +1,11 @@
 @file:Suppress("UnstableApiUsage")
 
-import com.android.build.gradle.tasks.PackageAndroidArtifact
-import java.io.ByteArrayOutputStream
-import java.io.FileInputStream
-import java.util.Properties
 import org.gradle.process.ExecOperations
 import org.gradle.kotlin.dsl.the
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileInputStream
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -15,21 +15,10 @@ plugins {
 val keystorePropertiesFile: File = rootProject.file("keystore.properties")
 val keystoreProperties = if (keystorePropertiesFile.exists() && keystorePropertiesFile.isFile) {
     Properties().apply {
-        load(FileInputStream(keystorePropertiesFile))
+        FileInputStream(keystorePropertiesFile).use { load(it) }
     }
 } else null
 
-<<<<<<< HEAD
-fun String.execute(currentWorkingDir: File = file("./")): String {
-    val byteOut = ByteArrayOutputStream()
-    exec {
-    workingDir = currentWorkingDir
-    commandLine = this@execute.split("\\s".toRegex())
-    standardOutput = byteOut
-    isIgnoreExitValue = true
-}
-    return String(byteOut.toByteArray()).trim()
-=======
 fun String.execute(execOps: ExecOperations, currentWorkingDir: File = File(".")): String {
     val outputStream = ByteArrayOutputStream()
     execOps.exec {
@@ -38,12 +27,9 @@ fun String.execute(execOps: ExecOperations, currentWorkingDir: File = File("."))
         standardOutput = outputStream
     }
     return outputStream.toString().trim()
->>>>>>> a732fea (refactor: fix deprecation by replacing exec with ExecOperations)
 }
 
-val gitCommitCount = "git rev-list HEAD --count".execute(
-    project.the<ExecOperations>()
-).toInt()
+val gitCommitCount = "git rev-list HEAD --count".execute(project.the<ExecOperations>()).toInt()
 
 android {
     namespace = "io.github.a13e300.ksuwebui"
@@ -77,37 +63,38 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            val releaseSig = signingConfigs.findByName("release")
-            signingConfig = if (releaseSig != null) releaseSig else {
+            signingConfig = signingConfigs.findByName("release") ?: run {
                 println("use debug signing config")
                 signingConfigs["debug"]
             }
         }
     }
+
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
     }
-    // https://stackoverflow.com/a/77745844
-    tasks.withType<PackageAndroidArtifact> {
-        doFirst { appMetadata.asFile.orNull?.writeText("") }
-    }
+
     androidResources {
         generateLocaleConfig = true
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
+
     kotlin {
         jvmToolchain {
             languageVersion.set(JavaLanguageVersion.of(21))
         }
     }
+
     buildFeatures {
         buildConfig = true
         viewBinding = true
     }
+
     packaging {
         resources {
             excludes += "**"
