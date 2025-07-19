@@ -4,6 +4,8 @@ import com.android.build.gradle.tasks.PackageAndroidArtifact
 import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
 import java.util.Properties
+import org.gradle.process.ExecOperations
+import org.gradle.kotlin.dsl.the
 
 plugins {
     alias(libs.plugins.android.application)
@@ -17,6 +19,7 @@ val keystoreProperties = if (keystorePropertiesFile.exists() && keystoreProperti
     }
 } else null
 
+<<<<<<< HEAD
 fun String.execute(currentWorkingDir: File = file("./")): String {
     val byteOut = ByteArrayOutputStream()
     exec {
@@ -26,9 +29,21 @@ fun String.execute(currentWorkingDir: File = file("./")): String {
     isIgnoreExitValue = true
 }
     return String(byteOut.toByteArray()).trim()
+=======
+fun String.execute(execOps: ExecOperations, currentWorkingDir: File = File(".")): String {
+    val outputStream = ByteArrayOutputStream()
+    execOps.exec {
+        workingDir = currentWorkingDir
+        commandLine = this@execute.split("\\s".toRegex())
+        standardOutput = outputStream
+    }
+    return outputStream.toString().trim()
+>>>>>>> a732fea (refactor: fix deprecation by replacing exec with ExecOperations)
 }
 
-val gitCommitCount = "git rev-list HEAD --count".execute().toInt()
+val gitCommitCount = "git rev-list HEAD --count".execute(
+    project.the<ExecOperations>()
+).toInt()
 
 android {
     namespace = "io.github.a13e300.ksuwebui"
