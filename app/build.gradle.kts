@@ -29,7 +29,7 @@ fun String.execute(execOps: ExecOperations, currentWorkingDir: File = File("."))
     return outputStream.toString().trim()
 }
 
-val gitCommitCount = "git rev-list HEAD --count".execute(project.the<ExecOperations>()).toInt()
+val gitCommitCount = "git rev-list HEAD --count".execute(project.services.get(ExecOperations::class.java)).toInt()
 
 android {
     namespace = "io.github.a13e300.ksuwebui"
