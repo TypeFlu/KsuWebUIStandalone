@@ -2,7 +2,6 @@ package io.github.a13e300.ksuwebui
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -10,20 +9,27 @@ import android.view.Menu
 import android.view.ViewGroup
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.topjohnwu.superuser.nio.FileSystemManager
 import io.github.a13e300.ksuwebui.databinding.ActivityMainBinding
 import io.github.a13e300.ksuwebui.databinding.ItemModuleBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @SuppressLint("NotifyDataSetChanged")
 class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     private lateinit var binding: ActivityMainBinding
-    private var moduleList = emptyList<Module>()
-    private lateinit var adapter: Adapter
+    private lateinit var adapter: ModuleAdapter
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +61,7 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
             return@setOnApplyWindowInsetsListener insets
         }
 
-        adapter = Adapter()
+        adapter = ModuleAdapter()
         binding.list.adapter = adapter
         binding.swipeRefresh.setOnRefreshListener {
             refresh()
@@ -70,7 +76,7 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
             isChecked = prefs.getBoolean("enable_web_debugging", BuildConfig.DEBUG)
             setOnMenuItemClickListener {
                 val newValue = !it.isChecked
-                prefs.edit().putBoolean("enable_web_debugging", newValue).apply()
+                prefs.edit { putBoolean("enable_web_debugging", newValue) }
                 it.isChecked = newValue
                 true
             }
@@ -79,7 +85,7 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
             isChecked = prefs.getBoolean("show_disabled", false)
             setOnMenuItemClickListener {
                 val newValue = !it.isChecked
-                prefs.edit().putBoolean("show_disabled", newValue).apply()
+                prefs.edit { putBoolean("show_disabled", newValue) }
                 it.isChecked = newValue
                 refresh()
                 true
@@ -89,59 +95,59 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     }
 
     private fun refresh() {
-        moduleList = emptyList()
-        adapter.notifyDataSetChanged()
-        binding.info.setText(R.string.loading)
-        binding.info.isVisible = true
+        adapter.submitList(emptyList())
+        binding.info.isVisible = false
+        binding.progressBar.isVisible = true
         FileSystemService.start(this)
     }
 
     override fun onServiceAvailable(fs: FileSystemManager) {
-        App.executor.submit {
-            val mods = mutableListOf<Module>()
-            val showDisabled = prefs.getBoolean("show_disabled", false)
-            fs.getFile("/data/adb/modules").listFiles()!!.forEach { f ->
-                if (!f.isDirectory) return@forEach
-                if (!fs.getFile(f, "webroot").isDirectory) return@forEach
-                if (fs.getFile(f, "disable").exists() && !showDisabled) return@forEach
-                var name = f.name
-                val id = f.name
-                var author = "?"
-                var version = "?"
-                var desc = ""
-                fs.getFile(f, "module.prop").newInputStream().bufferedReader().use {
-                    it.lines().forEach { l ->
-                        val ls = l.split("=", limit = 2)
-                        if (ls.size == 2) {
-                            if (ls[0] == "name") name = ls[1]
-                            else if (ls[0] == "description") desc = ls[1]
-                            else if (ls[0] == "author") author = ls[1]
-                            else if (ls[0] == "version") version = ls[1]
-                        }
+        lifecycleScope.launch {
+            val mods = withContext(Dispatchers.IO) {
+                val mods = mutableListOf<Module>()
+                val showDisabled = prefs.getBoolean("show_disabled", false)
+                fs.getFile("/data/adb/modules").listFiles()?.forEach { f ->
+                    if (!f.isDirectory) return@forEach
+                    if (!fs.getFile(f, "webroot").isDirectory) return@forEach
+                    if (fs.getFile(f, "disable").exists() && !showDisabled) return@forEach
+                    var name = f.name
+                    val id = f.name
+                    var author = "?"
+                    var version = "?"
+                    var desc = ""
+                    fs.getFile(f, "module.prop").newInputStream().bufferedReader().use {
+                        it.lines().forEach { l ->
+                            val ls = l.split("=", limit = 2)
+                            if (ls.size == 2) {
+                                if (ls[0] == "name") name = ls[1]
+                                else if (ls[0] == "description") desc = ls[1]
+                                else if (ls[0] == "author") author = ls[1]
+                                else if (ls[0] == "version") version = ls[1]
+                            }
 
+                        }
                     }
+                    mods.add(Module(name, id, desc, author, version))
                 }
-                mods.add(Module(name, id, desc, author, version))
+                mods
             }
-            runOnUiThread {
-                moduleList = mods
-                adapter.notifyDataSetChanged()
-                binding.swipeRefresh.isRefreshing = false
-                if (mods.isEmpty()) {
-                    binding.info.setText(R.string.no_modules)
-                    binding.info.isVisible = true
-                } else {
-                    binding.info.isVisible = false
-                }
+            binding.progressBar.isVisible = false
+            adapter.submitList(mods)
+            binding.swipeRefresh.isRefreshing = false
+            if (mods.isEmpty()) {
+                binding.info.setText(R.string.no_modules_found)
+                binding.info.isVisible = true
+            } else {
+                binding.info.isVisible = false
             }
         }
     }
 
     override fun onLaunchFailed() {
-        moduleList = emptyList()
-        adapter.notifyDataSetChanged()
+        adapter.submitList(emptyList())
         binding.info.setText(R.string.please_grant_root)
         binding.info.isVisible = true
+        binding.progressBar.isVisible = false
         binding.swipeRefresh.isRefreshing = false
     }
 
@@ -149,7 +155,7 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
 
     class ViewHolder(val binding: ItemModuleBinding) : RecyclerView.ViewHolder(binding.root)
 
-    inner class Adapter : RecyclerView.Adapter<ViewHolder>() {
+    inner class ModuleAdapter : ListAdapter<Module, ViewHolder>(ModuleDiffCallback()) {
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             return ViewHolder(
@@ -159,10 +165,8 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
             )
         }
 
-        override fun getItemCount(): Int = moduleList.size
-
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = moduleList[position]
+            val item = getItem(position)
             val id = item.id
             val name = item.name
             holder.binding.name.text = name
@@ -172,13 +176,22 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
             holder.binding.root.setOnClickListener {
                 startActivity(
                     Intent(this@MainActivity, WebUIActivity::class.java)
-                        .setData(Uri.parse("ksuwebui://webui/$id"))
+                        .setData("ksuwebui://webui/$id".toUri())
                         .putExtra("id", id)
                         .putExtra("name", name)
                 )
             }
         }
+    }
 
+    class ModuleDiffCallback : DiffUtil.ItemCallback<Module>() {
+        override fun areItemsTheSame(oldItem: Module, newItem: Module): Boolean {
+            return oldItem.id == newItem.id
+        }
+
+        override fun areContentsTheSame(oldItem: Module, newItem: Module): Boolean {
+            return oldItem == newItem
+        }
     }
 
     override fun onDestroy() {

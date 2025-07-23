@@ -15,6 +15,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
+import androidx.lifecycle.lifecycleScope
 import androidx.webkit.WebViewAssetLoader
 import com.topjohnwu.superuser.nio.FileSystemManager
 import java.io.File
@@ -70,7 +71,7 @@ class WebUIActivity : ComponentActivity(), FileSystemService.Listener {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = false
-            webviewInterface = WebViewInterface(this@WebUIActivity, this, moduleDir)
+            webviewInterface = WebViewInterface(this@WebUIActivity, this, moduleDir, lifecycleScope)
         }
 
         setContentView(webView)
@@ -80,11 +81,10 @@ class WebUIActivity : ComponentActivity(), FileSystemService.Listener {
     private fun setupWebview(fs: FileSystemManager) {
         val webRoot = File("$moduleDir/webroot")
         val webViewAssetLoader = WebViewAssetLoader.Builder()
-            .setDomain("mui.kernelsu.org")
+            .setDomain("mui.kernelsuu.org")
             .addPathHandler(
                 "/",
                 RemoteFsPathHandler(
-                    this,
                     webRoot,
                     fs
                 )

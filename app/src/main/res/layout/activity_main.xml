@@ -37,6 +37,15 @@
         android:id="@+id/info"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:text="@string/no_modules_found"
+        android:visibility="gone"
+        app:layout_anchor="@id/list"
+        app:layout_anchorGravity="center" />
+
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:visibility="gone"
         app:layout_anchor="@id/list"
         app:layout_anchorGravity="center" />

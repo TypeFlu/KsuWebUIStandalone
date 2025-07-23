@@ -1,17 +1,16 @@
 package io.github.a13e300.ksuwebui
 
 import android.app.Application
-import android.os.Handler
-import android.os.Looper
 import com.topjohnwu.superuser.Shell
-import java.util.concurrent.Executors
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 class App : Application() {
     companion object {
         lateinit var instance: App
             private set
-        val executor by lazy { Executors.newCachedThreadPool() }
-        val handler = Handler(Looper.getMainLooper())
+        val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     }
 
     override fun onCreate() {

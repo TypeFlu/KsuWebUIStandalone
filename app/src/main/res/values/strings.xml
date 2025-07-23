@@ -7,4 +7,9 @@
     <string name="author">Author: %s</string>
     <string name="version">Version: %s</string>
     <string name="show_disabled">Show Disabled</string>
+    <string name="no_modules_found" translatable="false">No modules found</string>
+
+    <!-- <string name="no_modules_found" translatable="false">No modules found</string> -->
+
+    <!-- <string name="no_modules_found" translatable="false">No modules found</string> -->
 </resources>

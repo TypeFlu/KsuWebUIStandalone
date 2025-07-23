@@ -8,6 +8,7 @@ import androidx.annotation.MainThread
 import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ipc.RootService
 import com.topjohnwu.superuser.nio.FileSystemManager
+import kotlinx.coroutines.launch
 import java.util.concurrent.CopyOnWriteArraySet
 
 class FileSystemService : RootService() {
@@ -59,19 +60,17 @@ class FileSystemService : RootService() {
 
         private fun checkRoot() {
             status = Status.CheckRoot
-            App.executor.submit {
+            App.applicationScope.launch {
                 val isRoot = Shell.Builder.create().setFlags(Shell.FLAG_MOUNT_MASTER).build().use {
                     it.isRoot
                 }
-                App.handler.post {
-                    if (isRoot) {
-                        launchService()
-                    } else {
-                        status = Status.Uninitialized
-                        pendingListeners.forEach { l ->
-                            l.onLaunchFailed()
-                            pendingListeners.remove(l)
-                        }
+                if (isRoot) {
+                    launchService()
+                } else {
+                    status = Status.Uninitialized
+                    pendingListeners.forEach { l ->
+                        l.onLaunchFailed()
+                        pendingListeners.remove(l)
                     }
                 }
             }
